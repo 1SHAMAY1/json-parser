@@ -5,7 +5,6 @@ import (
 
 	"parser/internal/model"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -119,16 +118,14 @@ func (r *Repository) CreateWorkflowEvent(
 	return id, err
 }
 
-func (r *Repository) GetWorkflowEvent(
+func (r *Repository) GetWorkflowEvents(
 	ctx context.Context,
 	applID int64,
 	serviceID int64,
 	rootType string,
-) (*model.WorkflowEvent, error) {
+) ([]model.WorkflowEvent, error) {
 
-	var event model.WorkflowEvent
-
-	err := r.db.QueryRow(
+	rows, err := r.db.Query(
 		ctx,
 		`
 		SELECT
@@ -147,37 +144,55 @@ func (r *Repository) GetWorkflowEvent(
 		WHERE appl_id = $1
 		AND service_id = $2
 		AND root_type = $3
-		ORDER BY id DESC
-		LIMIT 1
+		ORDER BY action_no ASC, id ASC
 		`,
 		applID,
 		serviceID,
 		rootType,
-	).Scan(
-		&event.ID,
-		&event.ApplID,
-		&event.ServiceID,
-		&event.RootType,
-		&event.TaskName,
-		&event.ActionNo,
-		&event.TaskType,
-		&event.ReceivedTime,
-		&event.ExecutedTime,
-		&event.RawPayload,
-		&event.CreatedAt,
 	)
-
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
-
 		return nil, err
 	}
+	defer rows.Close()
 
-	return &event, nil
+	var events []model.WorkflowEvent
+
+	for rows.Next() {
+
+		var event model.WorkflowEvent
+
+		if err := rows.Scan(
+			&event.ID,
+			&event.ApplID,
+			&event.ServiceID,
+			&event.RootType,
+			&event.TaskName,
+			&event.ActionNo,
+			&event.TaskType,
+			&event.ReceivedTime,
+			&event.ExecutedTime,
+			&event.RawPayload,
+			&event.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		events = append(
+			events,
+			event,
+		)
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	if len(events) == 0 {
+		return nil, nil
+	}
+
+	return events, nil
 }
-
 
 
 func (r *Repository) GetMappingsByServiceID(

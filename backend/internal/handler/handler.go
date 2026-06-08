@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -56,8 +57,8 @@ func (h *Handler) GetApplication(c echo.Context) error {
 
 	rootType := c.QueryParam("root_type")
 
-	if rootType != "initiated" &&
-		rootType != "execution" {
+	if rootType != "initiated_data" &&
+		rootType != "execution_data" {
 
 		return c.JSON(
 			http.StatusBadRequest,
@@ -67,7 +68,7 @@ func (h *Handler) GetApplication(c echo.Context) error {
 		)
 	}
 
-	event, err := h.repo.GetWorkflowEvent(
+	events, err := h.repo.GetWorkflowEvents(
 		c.Request().Context(),
 		applID,
 		serviceID,
@@ -82,7 +83,7 @@ func (h *Handler) GetApplication(c echo.Context) error {
 		)
 	}
 
-	if event == nil {
+	if events == nil {
 		return c.JSON(
 			http.StatusNotFound,
 			map[string]string{
@@ -104,35 +105,57 @@ func (h *Handler) GetApplication(c echo.Context) error {
 		)
 	}
 
-	var payload any
-
-	if err := json.Unmarshal(
-		event.RawPayload,
-		&payload,
-	); err != nil {
-		return c.JSON(
-			http.StatusInternalServerError,
-			map[string]string{
-				"error": err.Error(),
-			},
-		)
-	}
-
 	resolver := utils.NewResolver(
 		mappings,
 	)
 
-	resolved := resolver.Resolve(
-		payload,
+	resolvedEvents := make(
+		[]map[string]any,
+		0,
+		len(events),
 	)
+
+	for _, event := range events {
+
+		var payload any
+
+		if err := json.Unmarshal(
+			event.RawPayload,
+			&payload,
+		); err != nil {
+			return c.JSON(
+				http.StatusInternalServerError,
+				map[string]string{
+					"error": err.Error(),
+				},
+			)
+		}
+
+		resolved := resolver.Resolve(
+			payload,
+		)
+
+		resolvedEvents = append(
+			resolvedEvents,
+			map[string]any{
+				"id":            event.ID,
+				"task_name":     event.TaskName,
+				"action_no":     event.ActionNo,
+				"task_type":     event.TaskType,
+				"received_time": event.ReceivedTime,
+				"executed_time": event.ExecutedTime,
+				"payload":       resolved,
+			},
+		)
+	}
 
 	return c.JSON(
 		http.StatusOK,
 		map[string]any{
-			"application_id": event.ApplID,
-			"service_id":     event.ServiceID,
-			"root_type":      event.RootType,
-			"payload":        resolved,
+			"application_id": applID,
+			"service_id":     serviceID,
+			"root_type":      rootType,
+			"events":         resolvedEvents,
 		},
 	)
 }
@@ -169,8 +192,8 @@ func (h *Handler) DeleteApplication(c echo.Context) error {
 
 	rootType := c.QueryParam("root_type")
 
-	if rootType != "initiated" &&
-		rootType != "execution" {
+	if rootType != "initiated_data" &&
+		rootType != "execution_data" {
 
 		return c.JSON(
 			http.StatusBadRequest,
@@ -335,19 +358,6 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 
 func (h *Handler) UploadWorkflow(c echo.Context) error {
 
-	rootType := c.FormValue("root_type")
-
-	if rootType != "initiated" &&
-		rootType != "execution" {
-
-		return c.JSON(
-			http.StatusBadRequest,
-			map[string]string{
-				"error": "root_type must be initiated or execution",
-			},
-		)
-	}
-
 	file, err := c.FormFile("file")
 	if err != nil {
 		return c.JSON(
@@ -381,11 +391,10 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 
 	parser := utils.NewParser()
 
-	events, err := parser.Parse(
-		rawJSON,
-		rootType,
-	)
+	events, err := parser.Parse(rawJSON)
 	if err != nil {
+		fmt.Println("PARSER ERROR:", err)
+
 		return c.JSON(
 			http.StatusBadRequest,
 			map[string]string{

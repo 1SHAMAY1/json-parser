@@ -3,8 +3,7 @@ import "../App.css"
 import UploadSpreadsheet from "../components/UploadSpreadsheet"
 import UploadWorkflow from "../components/UploadWorkflow"
 import SearchApplication from "../components/SearchApplication"
-import JsonTree from "../components/JsonTree"
-
+import DeleteWorkflow from "../components/DeleteWorkflow"
 function Home() {
     return (
         <div className="container">
@@ -19,12 +18,13 @@ function Home() {
             </div>
 
             <div className="section">
-                <SearchApplication />
+                <DeleteWorkflow />
             </div>
 
             <div className="section">
-                <JsonTree />
+                <SearchApplication />
             </div>
+            
         </div>
     )
 }
