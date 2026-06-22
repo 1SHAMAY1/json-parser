@@ -1,13 +1,13 @@
 CREATE TABLE services(
-    service_id BIGINT PRIMARY KEY,
+    service_group_id BIGINT PRIMARY KEY,
     service_name TEXT NOT NULL
 );
 
 CREATE TABLE service_mappings (
     id BIGSERIAL PRIMARY KEY,
 
-    service_id BIGINT NOT NULL
-        REFERENCES services(service_id)
+    service_group_id BIGINT NOT NULL
+        REFERENCES services(service_group_id)
         ON DELETE CASCADE,
 
     section_name TEXT,
@@ -19,7 +19,7 @@ CREATE TABLE service_mappings (
     input_type TEXT,
     field_set_id BIGINT,
 
-    UNIQUE(service_id, field_id)
+    UNIQUE(service_group_id, field_id)
 );
 
 CREATE TABLE workflow_events(
@@ -27,8 +27,7 @@ CREATE TABLE workflow_events(
 
     appl_id BIGINT NOT NULL,
 
-    service_id BIGINT NOT NULL
-        REFERENCES services(service_id),
+    service_id BIGINT NOT NULL,
 
     root_type TEXT NOT NULL,
 
@@ -44,14 +43,93 @@ CREATE TABLE workflow_events(
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE application_initiated(
+    id BIGSERIAL PRIMARY KEY,
+
+    appl_id BIGINT NOT NULL,
+    service_id BIGINT NOT NULL,
+
+    service_name TEXT,
+
+    appl_ref_no TEXT,
+
+    submission_date TIMESTAMP,
+
+    submission_location TEXT,
+
+    applied_by TEXT,
+
+    payment_mode TEXT,
+
+    amount NUMERIC(12,2),
+
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE(appl_id, service_id)
+);
+
+CREATE TABLE application_execution(
+    id BIGSERIAL PRIMARY KEY,
+
+    appl_id BIGINT NOT NULL,
+
+    service_id BIGINT NOT NULL,
+
+    task_name TEXT,
+
+    action_no INT NOT NULL,
+
+    action_taken TEXT,
+
+    task_type INT,
+
+    user_name TEXT,
+
+    designation TEXT,
+
+    location_name TEXT,
+
+    received_time TIMESTAMP,
+
+    executed_time TIMESTAMP,
+
+    remarks TEXT,
+
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE(
+        appl_id,
+        service_id,
+        action_no
+    )
+);
+
 CREATE INDEX idx_workflow_appl_id
 ON workflow_events(appl_id);
 
 CREATE INDEX idx_workflow_service_id
 ON workflow_events(service_id);
 
-CREATE INDEX idx_service_mapping_service_id
-ON service_mappings(service_id);
+CREATE INDEX idx_service_mapping_service_group_id
+ON service_mappings(service_group_id);
 
 CREATE INDEX idx_service_mapping_field_id
 ON service_mappings(field_id);
+
+CREATE INDEX idx_app_initiated_appl_id
+ON application_initiated(appl_id);
+
+CREATE INDEX idx_app_initiated_service_id
+ON application_initiated(service_id);
+
+CREATE INDEX idx_app_execution_appl_id
+ON application_execution(appl_id);
+
+CREATE INDEX idx_app_execution_service_id
+ON application_execution(service_id);
+
+CREATE INDEX idx_app_execution_action_no
+ON application_execution(action_no);
+
+CREATE INDEX idx_app_execution_task_name
+ON application_execution(task_name);

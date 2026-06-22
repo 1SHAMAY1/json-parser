@@ -1,6 +1,8 @@
 import { useState } from "react"
+
 import { api } from "../api"
-import JsonTree from "./JsonTree"
+
+import ApplicationSummary from "./ApplicationSummary"
 
 function SearchApplication() {
 
@@ -11,7 +13,7 @@ function SearchApplication() {
         useState("")
 
     const [rootType, setRootType] =
-        useState("")
+        useState("initiated")
 
     const [result, setResult] =
         useState<any>(null)
@@ -22,11 +24,12 @@ function SearchApplication() {
 
             const response =
                 await api.get(
-                    `/applications/${applID}`,
+                    `/applications/${applID}/summary`,
                     {
                         params: {
                             service_id:
                                 serviceID,
+
                             root_type:
                                 rootType,
                         },
@@ -43,6 +46,10 @@ function SearchApplication() {
 
             alert(
                 "Application not found",
+            )
+
+            setResult(
+                null,
             )
         }
     }
@@ -85,16 +92,12 @@ function SearchApplication() {
                     )
                 }
             >
-                <option value="">
-                    Select Root Type
+                <option value="initiated">
+                    Initiated Data
                 </option>
 
-                <option value="initiated_data">
-                    initiated_data
-                </option>
-
-                <option value="execution_data">
-                    execution_data
+                <option value="execution">
+                    Execution Data
                 </option>
             </select>
 
@@ -109,78 +112,134 @@ function SearchApplication() {
             </button>
 
             {
-                result && (
+                result &&
+                rootType ===
+                    "initiated" && (
+                    <>
+                        <hr />
+
+                        <ApplicationSummary
+                            summary={
+                                result
+                            }
+                        />
+                    </>
+                )
+            }
+
+            {
+                result &&
+                rootType ===
+                    "execution" && (
                     <>
                         <hr />
 
                         <h3>
-                            Application{" "}
-                            {
-                                result.application_id
-                            }
+                            Execution Data
                         </h3>
 
-                        <p>
-                            Service ID:{" "}
-                            {
-                                result.service_id
-                            }
-                        </p>
-
-                        <p>
-                            Root Type:{" "}
-                            {
-                                result.root_type
-                            }
-                        </p>
-
-                        {
-                            result.events.map(
-                                (
-                                    event: any,
-                                    index: number,
-                                ) => (
-                                    <div
-                                        key={
-                                            event.id
+                    {
+                        result.map(
+                            (
+                                execution: any,
+                            ) => (
+                                <div
+                                    key={
+                                        execution.ID
+                                    }
+                                    style={{
+                                        marginBottom:
+                                            "20px",
+                                        padding:
+                                            "10px",
+                                        border:
+                                            "1px solid #ccc",
+                                    }}
+                                >
+                                    <p>
+                                        <strong>
+                                            Action No:
+                                        </strong>{" "}
+                                        {
+                                            execution.ActionNo
                                         }
-                                        style={{
-                                            marginTop:
-                                                "20px",
-                                            padding:
-                                                "10px",
-                                            border:
-                                                "1px solid #ccc",
-                                        }}
-                                    >
-                                        <h4>
-                                            {
-                                                index +
-                                                1
-                                            }
-                                            .{" "}
-                                            {
-                                                event.task_name
-                                            }
-                                        </h4>
-
-                                        <p>
-                                            Action No:{" "}
-                                            {
-                                                event.action_no
-                                            }
-                                        </p>
-
-                                        <JsonTree
-                                            name="payload"
-                                            data={
-                                                event.payload
-                                            }
-                                        />
-                                    </div>
-                                ),
-                            )
-                        }
+                                    </p>
+                                    
+                                    <p>
+                                        <strong>
+                                            Task Name:
+                                        </strong>{" "}
+                                        {
+                                            execution.TaskName
+                                        }
+                                    </p>
+                                    
+                                    <p>
+                                        <strong>
+                                            Action Taken:
+                                        </strong>{" "}
+                                        {
+                                            execution.ActionTaken
+                                        }
+                                    </p>
+                                    
+                                    <p>
+                                        <strong>
+                                            User:
+                                        </strong>{" "}
+                                        {
+                                            execution.UserName
+                                        }
+                                    </p>
+                                    
+                                    <p>
+                                        <strong>
+                                            Designation:
+                                        </strong>{" "}
+                                        {
+                                            execution.Designation
+                                        }
+                                    </p>
+                                    
+                                    <p>
+                                        <strong>
+                                            Location:
+                                        </strong>{" "}
+                                        {
+                                            execution.LocationName
+                                        }
+                                    </p>
+                                    
+                                    <p>
+                                        <strong>
+                                            Received Time:
+                                        </strong>{" "}
+                                        {
+                                            execution.ReceivedTime
+                                        }
+                                    </p>
+                                    
+                                    <p>
+                                        <strong>
+                                            Executed Time:
+                                        </strong>{" "}
+                                        {
+                                            execution.ExecutedTime
+                                        }
+                                    </p>
+                                    
+                                    <p>
+                                        <strong>
+                                            Remarks:
+                                        </strong>{" "}
+                                        {
+                                            execution.Remarks
+                                        }
+                                    </p>
+                                </div>
+                            ),
+                        )
+                    }
                     </>
                 )
             }

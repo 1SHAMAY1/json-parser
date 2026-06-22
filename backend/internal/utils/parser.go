@@ -11,6 +11,14 @@ import (
 
 type Parser struct{}
 
+type ParseResult struct {
+	WorkflowEvents []model.WorkflowEvent
+
+	InitiatedApps []model.ApplicationInitiated
+
+	ExecutionApps []model.ApplicationExecution
+}
+
 type Payload struct {
 	InitiatedData []map[string]any `json:"initiated_data"`
 	ExecutionData []map[string]any `json:"execution_data"`
@@ -19,20 +27,24 @@ type Payload struct {
 func NewParser() *Parser {
 	return &Parser{}
 }
+
 func (p *Parser) Parse(
 	raw []byte,
-) ([]model.WorkflowEvent, error) {
+) (*ParseResult, error) {
 
 	var payload Payload
 
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	if err := json.Unmarshal(
+		raw,
+		&payload,
+	); err != nil {
 		return nil, fmt.Errorf(
 			"unmarshal payload: %w",
 			err,
 		)
 	}
 
-	var events []model.WorkflowEvent
+	result := &ParseResult{}
 
 	for _, item := range payload.InitiatedData {
 
@@ -43,8 +55,11 @@ func (p *Parser) Parse(
 			return nil, err
 		}
 
-		eventRaw, err := json.Marshal(item)
+		eventRaw, err := json.Marshal(
+			item,
+		)
 		if err != nil {
+
 			return nil, fmt.Errorf(
 				"marshal event payload: %w",
 				err,
@@ -53,9 +68,56 @@ func (p *Parser) Parse(
 
 		event.RawPayload = eventRaw
 
-		events = append(
-			events,
+		result.WorkflowEvents = append(
+			result.WorkflowEvents,
 			event,
+		)
+
+		initiated :=
+			model.ApplicationInitiated{
+
+				ApplID: toInt64(
+					item["appl_id"],
+				),
+
+				ServiceID: toInt64(
+					item["service_id"],
+				),
+
+				ServiceName: toString(
+					item["service_name"],
+				),
+
+				ApplRefNo: toString(
+					item["appl_ref_no"],
+				),
+
+				SubmissionDate: parseTime(
+					toString(
+						item["submission_date"],
+					),
+				),
+
+				SubmissionLocation: toString(
+					item["submission_location"],
+				),
+
+				AppliedBy: toString(
+					item["applied_by"],
+				),
+
+				PaymentMode: toString(
+					item["payment_mode"],
+				),
+
+				Amount: toFloat64(
+					item["amount"],
+				),
+			}
+
+		result.InitiatedApps = append(
+			result.InitiatedApps,
+			initiated,
 		)
 	}
 
@@ -68,8 +130,11 @@ func (p *Parser) Parse(
 			return nil, err
 		}
 
-		eventRaw, err := json.Marshal(item)
+		eventRaw, err := json.Marshal(
+			item,
+		)
 		if err != nil {
+
 			return nil, fmt.Errorf(
 				"marshal event payload: %w",
 				err,
@@ -78,13 +143,90 @@ func (p *Parser) Parse(
 
 		event.RawPayload = eventRaw
 
-		events = append(
-			events,
+		result.WorkflowEvents = append(
+			result.WorkflowEvents,
 			event,
+		)
+
+		taskDetails, ok :=
+			item["task_details"].(map[string]any)
+
+		if !ok {
+			return nil, fmt.Errorf(
+				"task_details missing",
+			)
+		}
+
+		userDetail, _ :=
+			taskDetails["user_detail"].(map[string]any)
+
+		execution :=
+			model.ApplicationExecution{
+
+				ApplID: toInt64(
+					taskDetails["appl_id"],
+				),
+
+				ServiceID: toInt64(
+					taskDetails["service_id"],
+				),
+
+				TaskName: toString(
+					taskDetails["task_name"],
+				),
+
+				ActionNo: int(
+					toInt64(
+						taskDetails["action_no"],
+					),
+				),
+
+				ActionTaken: toString(
+					taskDetails["action_taken"],
+				),
+
+				TaskType: int(
+					toInt64(
+						taskDetails["task_type"],
+					),
+				),
+
+				UserName: toString(
+					taskDetails["user_name"],
+				),
+
+				Designation: toString(
+					userDetail["designation"],
+				),
+
+				LocationName: toString(
+					userDetail["location_name"],
+				),
+
+				ReceivedTime: parseTime(
+					toString(
+						taskDetails["received_time"],
+					),
+				),
+
+				ExecutedTime: parseTime(
+					toString(
+						taskDetails["executed_time"],
+					),
+				),
+
+				Remarks: toString(
+					taskDetails["remarks"],
+				),
+			}
+
+		result.ExecutionApps = append(
+			result.ExecutionApps,
+			execution,
 		)
 	}
 
-	return events, nil
+	return result, nil
 }
 
 func (p *Parser) extractInitiatedEvent(
@@ -193,4 +335,29 @@ func parseTime(value string) *time.Time {
 	}
 
 	return &t
+}
+
+func toFloat64(v any) float64 {
+
+	switch x := v.(type) {
+
+	case float64:
+		return x
+
+	case string:
+
+		f, err := strconv.ParseFloat(
+			x,
+			64,
+		)
+
+		if err != nil {
+			return 0
+		}
+
+		return f
+
+	default:
+		return 0
+	}
 }

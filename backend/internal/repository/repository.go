@@ -5,6 +5,7 @@ import (
 
 	"parser/internal/model"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,15 +28,15 @@ func (r *Repository) CreateService(
 		ctx,
 		`
 		INSERT INTO services(
-			service_id,
+			service_group_id,
 			service_name
 		)
 		VALUES($1, $2)
-		ON CONFLICT(service_id)
+		ON CONFLICT(service_group_id)
 		DO UPDATE SET
 			service_name = EXCLUDED.service_name
 		`,
-		service.ServiceID,
+		service.ServiceGroupID,
 		service.ServiceName,
 	)
 
@@ -51,7 +52,7 @@ func (r *Repository) CreateMapping(
 		ctx,
 		`
 		INSERT INTO service_mappings(
-			service_id,
+			service_group_id,
 			section_name,
 			section_id,
 			field_id,
@@ -60,7 +61,7 @@ func (r *Repository) CreateMapping(
 			field_set_id
 		)
 		VALUES($1,$2,$3,$4,$5,$6,$7)
-		ON CONFLICT(service_id, field_id)
+		ON CONFLICT(service_group_id, field_id)
 		DO UPDATE SET
 			section_name = EXCLUDED.section_name,
 			section_id = EXCLUDED.section_id,
@@ -68,7 +69,7 @@ func (r *Repository) CreateMapping(
 			input_type = EXCLUDED.input_type,
 			field_set_id = EXCLUDED.field_set_id
 		`,
-		mapping.ServiceID,
+		mapping.ServiceGroupID,
 		mapping.SectionName,
 		mapping.SectionID,
 		mapping.FieldID,
@@ -116,6 +117,168 @@ func (r *Repository) CreateWorkflowEvent(
 	).Scan(&id)
 
 	return id, err
+}
+
+func(r *Repository) ServiceGroupExists(
+	ctx context.Context,
+	serviceGroupID int64,
+)(bool,error){
+	var exists bool
+
+	err := r.db.QueryRow(
+		ctx,
+		`
+		SELECT EXISTS(
+			SELECT 1
+			FROM services
+			WHERE service_group_id = $1
+		)	
+		`,
+		serviceGroupID,
+	).Scan(&exists)
+
+	return exists,err
+}
+
+func (r *Repository) CreateApplicationInitiated(
+	ctx context.Context,
+	app model.ApplicationInitiated,
+) error {
+
+	_, err := r.db.Exec(
+		ctx,
+		`
+		INSERT INTO application_initiated(
+			appl_id,
+			service_id,
+			service_name,
+			appl_ref_no,
+			submission_date,
+			submission_location,
+			applied_by,
+			payment_mode,
+			amount
+		)
+		VALUES(
+			$1,$2,$3,$4,$5,
+			$6,$7,$8,$9
+		)
+		ON CONFLICT(
+			appl_id,
+			service_id
+		)
+		DO UPDATE SET
+			service_name =
+				EXCLUDED.service_name,
+
+			appl_ref_no =
+				EXCLUDED.appl_ref_no,
+
+			submission_date =
+				EXCLUDED.submission_date,
+
+			submission_location =
+				EXCLUDED.submission_location,
+
+			applied_by =
+				EXCLUDED.applied_by,
+
+			payment_mode =
+				EXCLUDED.payment_mode,
+
+			amount =
+				EXCLUDED.amount
+
+		`,
+		app.ApplID,
+		app.ServiceID,
+		app.ServiceName,
+		app.ApplRefNo,
+		app.SubmissionDate,
+		app.SubmissionLocation,
+		app.AppliedBy,
+		app.PaymentMode,
+		app.Amount,
+	)
+
+	return err
+}
+
+func (r *Repository) CreateApplicationExecution(
+	ctx context.Context,
+	app model.ApplicationExecution,
+) error {
+
+	_, err := r.db.Exec(
+		ctx,
+		`
+		INSERT INTO application_execution(
+			appl_id,
+			service_id,
+			task_name,
+			action_no,
+			action_taken,
+			task_type,
+			user_name,
+			designation,
+			location_name,
+			received_time,
+			executed_time,
+			remarks
+		)
+		VALUES(
+			$1,$2,$3,$4,$5,$6,
+			$7,$8,$9,$10,$11,
+			$12
+		)
+		ON CONFLICT(
+			appl_id,
+			service_id,
+			action_no
+		)
+		DO UPDATE SET
+			task_name =
+				EXCLUDED.task_name,
+
+			action_taken =
+				EXCLUDED.action_taken,
+
+			task_type =
+				EXCLUDED.task_type,
+
+			user_name =
+				EXCLUDED.user_name,
+
+			designation =
+				EXCLUDED.designation,
+
+			location_name =
+				EXCLUDED.location_name,
+
+			received_time =
+				EXCLUDED.received_time,
+
+			executed_time =
+				EXCLUDED.executed_time,
+
+			remarks =
+				EXCLUDED.remarks
+		`,
+		app.ApplID,
+		app.ServiceID,
+		app.TaskName,
+		app.ActionNo,
+		app.ActionTaken,
+		app.TaskType,
+		app.UserName,
+		app.Designation,
+		app.LocationName,
+		app.ReceivedTime,
+		app.ExecutedTime,
+		app.Remarks,
+	)
+
+	return err
 }
 
 func (r *Repository) GetWorkflowEvents(
@@ -192,6 +355,126 @@ func (r *Repository) GetWorkflowEvents(
 	}
 
 	return events, nil
+}
+
+
+func (r *Repository) GetApplicationInitiated(
+	ctx context.Context,
+	applID int64,
+	serviceID int64,
+) (*model.ApplicationInitiated, error) {
+
+	var app model.ApplicationInitiated
+
+	err := r.db.QueryRow(
+		ctx,
+		`
+		SELECT
+			id,
+			appl_id,
+			service_id,
+			service_name,
+			appl_ref_no,
+			submission_date,
+			submission_location,
+			applied_by,
+			payment_mode,
+			amount,
+			created_at
+		FROM application_initiated
+		WHERE appl_id = $1
+		AND service_id = $2
+		`,
+		applID,
+		serviceID,
+	).Scan(
+		&app.ID,
+		&app.ApplID,
+		&app.ServiceID,
+		&app.ServiceName,
+		&app.ApplRefNo,
+		&app.SubmissionDate,
+		&app.SubmissionLocation,
+		&app.AppliedBy,
+		&app.PaymentMode,
+		&app.Amount,
+		&app.CreatedAt,
+	)
+
+	if err != nil {
+
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &app, nil
+}
+
+func (r *Repository) GetApplicationExecution(
+	ctx context.Context,
+	applID int64,
+	serviceID int64,
+	actionNo int,
+) (*model.ApplicationExecution, error) {
+
+	var execution model.ApplicationExecution
+
+	err := r.db.QueryRow(
+		ctx,
+		`
+		SELECT
+			id,
+			appl_id,
+			service_id,
+			task_name,
+			action_no,
+			action_taken,
+			task_type,
+			user_name,
+			designation,
+			location_name,
+			received_time,
+			executed_time,
+			remarks,
+			created_at
+		FROM application_execution
+		WHERE appl_id = $1
+		AND service_id = $2
+		AND action_no = $3
+		`,
+		applID,
+		serviceID,
+		actionNo,
+	).Scan(
+		&execution.ID,
+		&execution.ApplID,
+		&execution.ServiceID,
+		&execution.TaskName,
+		&execution.ActionNo,
+		&execution.ActionTaken,
+		&execution.TaskType,
+		&execution.UserName,
+		&execution.Designation,
+		&execution.LocationName,
+		&execution.ReceivedTime,
+		&execution.ExecutedTime,
+		&execution.Remarks,
+		&execution.CreatedAt,
+	)
+
+	if err != nil {
+
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &execution, nil
 }
 
 

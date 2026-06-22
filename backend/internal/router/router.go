@@ -32,4 +32,9 @@ func Register(
 		"/applications/:appl_id",
 		h.DeleteApplication,
 	)
+
+	api.GET(
+		"/applications/:appl_id/actions/:action_no",
+		h.GetApplicationAction,
+	)
 }

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -14,6 +13,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 )
+
+type ParseResult struct {
+	WorkflowEvents []model.WorkflowEvent
+	InitiatedApps []model.ApplicationInitiated
+	ExecutionApps []model.ApplicationExecution
+}
 
 type Handler struct {
 	repo *repository.Repository
@@ -160,6 +165,108 @@ func (h *Handler) GetApplication(c echo.Context) error {
 	)
 }
 
+func (h *Handler) GetApplicationAction(
+	c echo.Context,
+) error {
+
+	applID, err := strconv.ParseInt(
+		c.Param("appl_id"),
+		10,
+		64,
+	)
+	if err != nil {
+		return c.JSON(
+			http.StatusBadRequest,
+			map[string]string{
+				"error": "invalid application id",
+			},
+		)
+	}
+
+	serviceID, err := strconv.ParseInt(
+		c.QueryParam("service_id"),
+		10,
+		64,
+	)
+	if err != nil {
+		return c.JSON(
+			http.StatusBadRequest,
+			map[string]string{
+				"error": "invalid service id",
+			},
+		)
+	}
+
+	if c.Param("action_no") == "" {
+		application, err := h.repo.GetApplicationInitiated(
+			c.Request().Context(),
+			applID,
+			serviceID,
+		)
+		if err != nil {
+			return c.JSON(
+				http.StatusInternalServerError,
+				map[string]string{
+					"error": err.Error(),
+				},
+			)
+		}
+
+		if application == nil {
+			return c.JSON(
+				http.StatusNotFound,
+				map[string]string{
+					"error": "application not found",
+				},
+			)
+		}
+		return c.JSON(
+			http.StatusOK,
+			application,
+		)
+	} else {
+		actionNo, err := strconv.Atoi(
+			c.Param("action_no"),
+		)
+		if err != nil {
+			return c.JSON(
+				http.StatusInternalServerError,
+				map[string]string{
+					"error": err.Error(),
+				},
+			)
+		}
+		application, err := h.repo.GetApplicationExecution(
+			c.Request().Context(),
+			applID,
+			serviceID,
+			actionNo,
+		)
+		if err != nil {
+			return c.JSON(
+				http.StatusInternalServerError,
+				map[string]string{
+					"error": err.Error(),
+				},
+			)
+		}
+
+		if application == nil {
+			return c.JSON(
+				http.StatusNotFound,
+				map[string]string{
+					"error": "application not found",
+				},
+			)
+		}
+
+		return c.JSON(
+			http.StatusOK,
+			application,
+		)
+	}
+}
+
 func (h *Handler) DeleteApplication(c echo.Context) error {
 
 	applID, err := strconv.ParseInt(
@@ -228,8 +335,8 @@ func (h *Handler) DeleteApplication(c echo.Context) error {
 
 func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 
-	serviceID, err := strconv.ParseInt(
-		c.FormValue("service_id"),
+	serviceGroupID, err := strconv.ParseInt(
+		c.FormValue("service_group_id"),
 		10,
 		64,
 	)
@@ -237,7 +344,7 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 		return c.JSON(
 			http.StatusBadRequest,
 			map[string]string{
-				"error": "invalid service id",
+				"error": "invalid service group id",
 			},
 		)
 	}
@@ -310,7 +417,7 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 	err = h.repo.CreateService(
 		c.Request().Context(),
 		model.Service{
-			ServiceID:   serviceID,
+			ServiceGroupID:   serviceGroupID,
 			ServiceName: serviceName,
 		},
 	)
@@ -328,7 +435,7 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 		err := h.repo.CreateMapping(
 			c.Request().Context(),
 			model.ServiceMapping{
-				ServiceID:   serviceID,
+				ServiceGroupID:   serviceGroupID,
 				SectionName: attr.SectionName,
 				SectionID:   attr.SectionID,
 				FieldID:     attr.AttributeID,
@@ -391,10 +498,8 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 
 	parser := utils.NewParser()
 
-	events, err := parser.Parse(rawJSON)
+	result, err := parser.Parse(rawJSON)
 	if err != nil {
-		fmt.Println("PARSER ERROR:", err)
-
 		return c.JSON(
 			http.StatusBadRequest,
 			map[string]string{
@@ -402,8 +507,42 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 			},
 		)
 	}
+	skipped := 0
+	workflowsCount := 0
+	initiatedCount := 0
+	executionCount := 0
+	validServices:= make(map[int64]bool)
 
-	for _, event := range events {
+	for _, event := range result.WorkflowEvents {
+
+		serviceID := event.ServiceID
+
+		exists, seen := validServices[serviceID]
+
+		if !seen{
+			serviceGroupID := serviceID/1000
+			exists, err = h.repo.ServiceGroupExists(
+				c.Request().Context(),
+				serviceGroupID,
+			)
+
+			if err != nil{
+				return c.JSON(
+					http.StatusInternalServerError,
+					map[string]string{
+						"error" : err.Error(),
+					},
+				)
+			}
+
+			validServices[serviceID] = exists
+
+		}
+
+		if !exists{
+			skipped++
+			continue
+		}
 
 		_, err := h.repo.CreateWorkflowEvent(
 			c.Request().Context(),
@@ -418,13 +557,62 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 				},
 			)
 		}
+		workflowsCount++
+	}
+
+	for _, app := range result.InitiatedApps {
+		
+		if !validServices[app.ServiceID]{
+			continue
+		}
+
+		err := h.repo.CreateApplicationInitiated(
+			c.Request().Context(),
+			app,
+		)
+
+		if err != nil {
+			return c.JSON(
+				http.StatusInternalServerError,
+				map[string]string{
+					"error": err.Error(),
+				},
+			)
+		}
+		initiatedCount++
+	}
+
+	for _, app := range result.ExecutionApps {
+
+		if !validServices[app.ServiceID]{
+			continue
+		}
+
+		err := h.repo.CreateApplicationExecution(
+			c.Request().Context(),
+			app,
+		)
+		
+
+		if err != nil {
+			return c.JSON(
+				http.StatusInternalServerError,
+				map[string]string{
+					"error": err.Error(),
+				},
+			)
+		}
+		executionCount++;
 	}
 
 	return c.JSON(
 		http.StatusCreated,
 		map[string]any{
-			"message": "workflow uploaded",
-			"count":   len(events),
+			"message":   "workflow uploaded",
+			"events":    workflowsCount,
+			"initiated": initiatedCount,
+			"execution": executionCount,
+			"skipped" : skipped,
 		},
 	)
 }
