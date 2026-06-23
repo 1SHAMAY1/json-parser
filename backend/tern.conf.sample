@@ -1,9 +1,9 @@
 [database]
 host = 127.0.0.1
 port = 5432
-database = json_parser
-user = jarvis
-password = psql
+database = 
+user = 
+password = 
 sslmode = prefer
 
 [migration]

@@ -39,13 +39,18 @@ function UploadSpreadsheet() {
                 "/spreadsheet",
                 formData,
             )
+            console.log("SUCCESS", response)
+            console.log("DATA", response.data)
 
             alert(
                 response.data.message,
             )
-        } catch (err) {
-            console.error(err)
-            alert("Upload failed")
+        } catch (err: any) {
+            console.log("ERROR", err)
+            console.log("RESPONSE", err?.response)
+            console.log("DATA", err?.response?.data)
+                
+            alert(err?.message ?? "failed")
         }
     }
 
