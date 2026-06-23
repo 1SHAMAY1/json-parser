@@ -100,3 +100,17 @@ type ApplicationExecution struct {
 
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
+
+type Log struct {
+	ID int64 `db:"id" json:"id"`
+
+	Level string `db:"level" json:"level"`
+
+	Source string `db:"source" json:"source"`
+
+	Message string `db:"message" json:"message"`
+
+	Metadata []byte `db:"metadata" json:"metadata"`
+
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}

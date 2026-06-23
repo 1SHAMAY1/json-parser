@@ -2,9 +2,14 @@ import { useState } from "react"
 import { api } from "../api"
 
 function UploadSpreadsheet() {
-    const [serviceID, setServiceID] = useState("")
-    const [serviceName, setServiceName] = useState("")
-    const [file, setFile] = useState<File | null>(null)
+    const [serviceGroupID, setServiceGroupID] =
+        useState("")
+
+    const [serviceName, setServiceName] =
+        useState("")
+
+    const [file, setFile] =
+        useState<File | null>(null)
 
     async function handleUpload() {
         if (!file) {
@@ -15,8 +20,8 @@ function UploadSpreadsheet() {
         const formData = new FormData()
 
         formData.append(
-            "service_id",
-            serviceID,
+            "service_group_id",
+            serviceGroupID,
         )
 
         formData.append(
@@ -46,14 +51,16 @@ function UploadSpreadsheet() {
 
     return (
         <div>
-            <h2>Upload Spreadsheet</h2>
+            <h2>
+                Upload Spreadsheet
+            </h2>
 
             <input
                 type="text"
-                placeholder="Service ID"
-                value={serviceID}
+                placeholder="Service Group ID"
+                value={serviceGroupID}
                 onChange={(e) =>
-                    setServiceID(
+                    setServiceGroupID(
                         e.target.value,
                     )
                 }

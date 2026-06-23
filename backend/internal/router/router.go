@@ -34,7 +34,14 @@ func Register(
 	)
 
 	api.GET(
+		"/applications/:appl_id/actions",
+		h.GetApplicationAction,
+	)
+
+	api.GET(
 		"/applications/:appl_id/actions/:action_no",
 		h.GetApplicationAction,
 	)
+
+	api.GET("/logs", h.GetLogs)
 }

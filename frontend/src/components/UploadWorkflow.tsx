@@ -24,8 +24,12 @@ function UploadWorkflow() {
             )
 
             alert(
-                `${response.data.message} (${response.data.count} events)`,
-            )
+                    `${response.data.message}
+                Events: ${response.data.events}
+                Initiated: ${response.data.initiated}
+                Execution: ${response.data.execution}
+                Skipped: ${response.data.skipped}`
+                )
         } catch (err: any) {
             console.log(err)
 

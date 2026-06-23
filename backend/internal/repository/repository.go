@@ -545,3 +545,81 @@ func (r *Repository) DeleteApplication(
 
 	return err
 }
+
+func (r *Repository) CreateLog(
+	ctx context.Context,
+	log model.Log,
+) error {
+
+	_, err := r.db.Exec(
+		ctx,
+		`
+		INSERT INTO logs(
+			level,
+			source,
+			message,
+			metadata
+		)
+		VALUES($1,$2,$3,$4)
+		`,
+		log.Level,
+		log.Source,
+		log.Message,
+		log.Metadata,
+	)
+
+	return err
+}
+
+func (r *Repository) GetLogs(
+	ctx context.Context,
+) ([]model.Log, error) {
+
+	rows, err := r.db.Query(
+		ctx,
+		`
+		SELECT
+			id,
+			level,
+			source,
+			message,
+			metadata,
+			created_at
+		FROM logs
+		ORDER BY created_at DESC
+		`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []model.Log
+
+	for rows.Next() {
+
+		var log model.Log
+
+		if err := rows.Scan(
+			&log.ID,
+			&log.Level,
+			&log.Source,
+			&log.Message,
+			&log.Metadata,
+			&log.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		logs = append(
+			logs,
+			log,
+		)
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return logs, nil
+}

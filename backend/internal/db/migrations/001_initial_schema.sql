@@ -104,6 +104,20 @@ CREATE TABLE application_execution(
     )
 );
 
+CREATE TABLE logs(
+    id BIGSERIAL PRIMARY KEY,
+
+    level TEXT NOT NULL,
+
+    source TEXT NOT NULL,
+
+    message TEXT NOT NULL,
+
+    metadata JSONB,
+
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX idx_workflow_appl_id
 ON workflow_events(appl_id);
 

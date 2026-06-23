@@ -16,13 +16,18 @@ import (
 
 type ParseResult struct {
 	WorkflowEvents []model.WorkflowEvent
-	InitiatedApps []model.ApplicationInitiated
-	ExecutionApps []model.ApplicationExecution
+	InitiatedApps  []model.ApplicationInitiated
+	ExecutionApps  []model.ApplicationExecution
 }
 
 type Handler struct {
 	repo *repository.Repository
 }
+
+const (
+	LogLevelError = "ERROR"
+	LogLevelInfo  = "INFO"
+)
 
 func New(repo *repository.Repository) *Handler {
 	return &Handler{
@@ -80,6 +85,16 @@ func (h *Handler) GetApplication(c echo.Context) error {
 		rootType,
 	)
 	if err != nil {
+
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "GetApplication",
+				Message: err.Error(),
+			},
+		)
+
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -102,6 +117,16 @@ func (h *Handler) GetApplication(c echo.Context) error {
 		serviceID,
 	)
 	if err != nil {
+
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "GetApplication",
+				Message: err.Error(),
+			},
+		)
+
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -128,6 +153,16 @@ func (h *Handler) GetApplication(c echo.Context) error {
 			event.RawPayload,
 			&payload,
 		); err != nil {
+
+			_ = h.repo.CreateLog(
+				c.Request().Context(),
+				model.Log{
+					Level:   LogLevelError,
+					Source:  "GetApplication",
+					Message: err.Error(),
+				},
+			)
+
 			return c.JSON(
 				http.StatusInternalServerError,
 				map[string]string{
@@ -204,6 +239,16 @@ func (h *Handler) GetApplicationAction(
 			serviceID,
 		)
 		if err != nil {
+
+			_ = h.repo.CreateLog(
+				c.Request().Context(),
+				model.Log{
+					Level:   LogLevelError,
+					Source:  "GetApplicationAction",
+					Message: err.Error(),
+				},
+			)
+
 			return c.JSON(
 				http.StatusInternalServerError,
 				map[string]string{
@@ -243,6 +288,16 @@ func (h *Handler) GetApplicationAction(
 			actionNo,
 		)
 		if err != nil {
+
+			_ = h.repo.CreateLog(
+				c.Request().Context(),
+				model.Log{
+					Level:   LogLevelError,
+					Source:  "GetApplicationAction",
+					Message: err.Error(),
+				},
+			)
+
 			return c.JSON(
 				http.StatusInternalServerError,
 				map[string]string{
@@ -317,6 +372,16 @@ func (h *Handler) DeleteApplication(c echo.Context) error {
 		rootType,
 	)
 	if err != nil {
+
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "DeleteApplication",
+				Message: err.Error(),
+			},
+		)
+
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -372,6 +437,16 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 
 	src, err := file.Open()
 	if err != nil {
+
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "UploadSpreadsheet",
+				Message: err.Error(),
+			},
+		)
+
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -383,6 +458,14 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 
 	tmpFile, err := os.CreateTemp("", "*.xlsx")
 	if err != nil {
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "UploadSpreadsheet",
+				Message: err.Error(),
+			},
+		)
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -394,6 +477,14 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 	defer os.Remove(tmpFile.Name())
 
 	if _, err := io.Copy(tmpFile, src); err != nil {
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "UploadSpreadsheet",
+				Message: err.Error(),
+			},
+		)
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -406,6 +497,16 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 		tmpFile.Name(),
 	)
 	if err != nil {
+
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "UploadSpreadsheet",
+				Message: err.Error(),
+			},
+		)
+
 		return c.JSON(
 			http.StatusBadRequest,
 			map[string]string{
@@ -417,11 +518,19 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 	err = h.repo.CreateService(
 		c.Request().Context(),
 		model.Service{
-			ServiceGroupID:   serviceGroupID,
-			ServiceName: serviceName,
+			ServiceGroupID: serviceGroupID,
+			ServiceName:    serviceName,
 		},
 	)
 	if err != nil {
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "UploadSpreadsheet",
+				Message: err.Error(),
+			},
+		)
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -435,17 +544,25 @@ func (h *Handler) UploadSpreadsheet(c echo.Context) error {
 		err := h.repo.CreateMapping(
 			c.Request().Context(),
 			model.ServiceMapping{
-				ServiceGroupID:   serviceGroupID,
-				SectionName: attr.SectionName,
-				SectionID:   attr.SectionID,
-				FieldID:     attr.AttributeID,
-				FieldName:   attr.Label,
-				InputType:   attr.InputType,
-				FieldSetID:  attr.FieldSetID,
+				ServiceGroupID: serviceGroupID,
+				SectionName:    attr.SectionName,
+				SectionID:      attr.SectionID,
+				FieldID:        attr.AttributeID,
+				FieldName:      attr.Label,
+				InputType:      attr.InputType,
+				FieldSetID:     attr.FieldSetID,
 			},
 		)
 
 		if err != nil {
+			_ = h.repo.CreateLog(
+				c.Request().Context(),
+				model.Log{
+					Level:   LogLevelError,
+					Source:  "UploadSpreadsheet",
+					Message: err.Error(),
+				},
+			)
 			return c.JSON(
 				http.StatusInternalServerError,
 				map[string]string{
@@ -477,6 +594,14 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 
 	src, err := file.Open()
 	if err != nil {
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "UploadWorkflow",
+				Message: err.Error(),
+			},
+		)
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -488,6 +613,14 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 
 	rawJSON, err := io.ReadAll(src)
 	if err != nil {
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "UploadWorkflow",
+				Message: err.Error(),
+			},
+		)
 		return c.JSON(
 			http.StatusInternalServerError,
 			map[string]string{
@@ -500,6 +633,15 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 
 	result, err := parser.Parse(rawJSON)
 	if err != nil {
+		_ = h.repo.CreateLog(
+			c.Request().Context(),
+			model.Log{
+				Level:   LogLevelError,
+				Source:  "UploadWorkflow",
+				Message: err.Error(),
+			},
+		)
+		
 		return c.JSON(
 			http.StatusBadRequest,
 			map[string]string{
@@ -511,7 +653,7 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 	workflowsCount := 0
 	initiatedCount := 0
 	executionCount := 0
-	validServices:= make(map[int64]bool)
+	validServices := make(map[int64]bool)
 
 	for _, event := range result.WorkflowEvents {
 
@@ -519,18 +661,26 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 
 		exists, seen := validServices[serviceID]
 
-		if !seen{
-			serviceGroupID := serviceID/1000
+		if !seen {
+			serviceGroupID := serviceID / 1000
 			exists, err = h.repo.ServiceGroupExists(
 				c.Request().Context(),
 				serviceGroupID,
 			)
 
-			if err != nil{
+			if err != nil {
+				_ = h.repo.CreateLog(
+					c.Request().Context(),
+					model.Log{
+						Level:   LogLevelError,
+						Source:  "UploadWorkflow",
+						Message: err.Error(),
+					},
+				)
 				return c.JSON(
 					http.StatusInternalServerError,
 					map[string]string{
-						"error" : err.Error(),
+						"error": err.Error(),
 					},
 				)
 			}
@@ -539,7 +689,7 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 
 		}
 
-		if !exists{
+		if !exists {
 			skipped++
 			continue
 		}
@@ -550,6 +700,14 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 		)
 
 		if err != nil {
+			_ = h.repo.CreateLog(
+				c.Request().Context(),
+				model.Log{
+					Level:   LogLevelError,
+					Source:  "UploadWorkflow",
+					Message: err.Error(),
+				},
+			)
 			return c.JSON(
 				http.StatusInternalServerError,
 				map[string]string{
@@ -561,8 +719,8 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 	}
 
 	for _, app := range result.InitiatedApps {
-		
-		if !validServices[app.ServiceID]{
+
+		if !validServices[app.ServiceID] {
 			continue
 		}
 
@@ -572,6 +730,14 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 		)
 
 		if err != nil {
+			_ = h.repo.CreateLog(
+				c.Request().Context(),
+				model.Log{
+					Level:   LogLevelError,
+					Source:  "UploadWorkflow",
+					Message: err.Error(),
+				},
+			)
 			return c.JSON(
 				http.StatusInternalServerError,
 				map[string]string{
@@ -584,7 +750,7 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 
 	for _, app := range result.ExecutionApps {
 
-		if !validServices[app.ServiceID]{
+		if !validServices[app.ServiceID] {
 			continue
 		}
 
@@ -592,9 +758,16 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 			c.Request().Context(),
 			app,
 		)
-		
 
 		if err != nil {
+			_ = h.repo.CreateLog(
+				c.Request().Context(),
+				model.Log{
+					Level:   LogLevelError,
+					Source:  "UploadWorkflow",
+					Message: err.Error(),
+				},
+			)
 			return c.JSON(
 				http.StatusInternalServerError,
 				map[string]string{
@@ -602,7 +775,7 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 				},
 			)
 		}
-		executionCount++;
+		executionCount++
 	}
 
 	return c.JSON(
@@ -612,7 +785,29 @@ func (h *Handler) UploadWorkflow(c echo.Context) error {
 			"events":    workflowsCount,
 			"initiated": initiatedCount,
 			"execution": executionCount,
-			"skipped" : skipped,
+			"skipped":   skipped,
 		},
+	)
+}
+
+func (h *Handler) GetLogs(
+	c echo.Context,
+) error {
+
+	logs, err := h.repo.GetLogs(
+		c.Request().Context(),
+	)
+	if err != nil {
+		return c.JSON(
+			http.StatusInternalServerError,
+			map[string]string{
+				"error": err.Error(),
+			},
+		)
+	}
+
+	return c.JSON(
+		http.StatusOK,
+		logs,
 	)
 }
