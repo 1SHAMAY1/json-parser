@@ -102,6 +102,12 @@ Update `.env` with the correct credentials.
 
 ## Migrations
 
+Create a tern.conf file from tern.conf.sample
+
+```bash
+cp tern.conf.sample tern.conf
+```
+
 Create a migration after configuring tern.conf from tern.conf.sample:
 
 ```bash
