@@ -138,7 +138,6 @@ func LoadConfig() (*Config, error) {
 		return strings.ToLower(strings.TrimPrefix(key, "PARSER_")), value
 	}), nil)
 
-
 	if err != nil {
 		return nil, fmt.Errorf(
 			"could not load initial env variables: %w",
@@ -164,12 +163,10 @@ func LoadConfig() (*Config, error) {
 
 	err = validate.Struct(mainConfig)
 	if err != nil {
-		if err != nil {
-			return nil, fmt.Errorf(
-				"config validation failed: %w",
-				err,
-			)
-		}
+		return nil, fmt.Errorf(
+			"config validation failed: %w",
+			err,
+		)
 	} else {
 		fmt.Println(
 			"config validation passed",
